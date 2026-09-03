@@ -23,7 +23,7 @@ class Settings:
 def load_settings() -> Settings:
     settings = Settings(
         gemini_api_key=_env("GEMINI_API_KEY"),
-        gemini_model=_env("GEMINI_MODEL", "gemini-2.0-flash"),
+        gemini_model=_env("GEMINI_MODEL", "gemini-3.6-flash"),
         log_level=_env("LOG_LEVEL", "INFO"),
     )
     if not settings.gemini_api_key:
