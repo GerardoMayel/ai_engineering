@@ -1,10 +1,13 @@
 [project]
 name = "ai-engineering"
 version = "0.1.0"
-description = "Add your description here"
+description = "Bootcamp de AI Engineering: chat de terminal con Gemini"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "google-genai>=1.14.0",
+    "python-dotenv>=1.0.1",
+]
 
 [project.scripts]
 ai-engineering = "ai_engineering:main"
