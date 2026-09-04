@@ -12,6 +12,7 @@ class LLMClient:
 
     def __init__(self, settings: Settings) -> None:
         self.model = settings.gemini_model
+        self._settings = settings
         self._client = genai.Client(
             api_key=settings.gemini_api_key,
             http_options=types.HttpOptions(
@@ -40,7 +41,41 @@ class LLMClient:
     def chat(self, user_message: str) -> str:
         logger.debug("Enviando mensaje al modelo (%s caracteres)", len(user_message))
         response = self._chat.send_message(user_message)
-        text = (response.text or "").strip()
+        return self._text_from(response)
+
+    def complete(
+        self,
+        user_message: str,
+        *,
+        system_instruction: str,
+        temperature: float | None = None,
+    ) -> str:
+        """Llamada sin historial: cada prompt de la cadena lleva su propio system."""
+        config = types.GenerateContentConfig(
+            system_instruction=system_instruction,
+            temperature=(
+                self._settings.temperature if temperature is None else temperature
+            ),
+            top_p=self._settings.top_p,
+            top_k=self._settings.top_k,
+            max_output_tokens=self._settings.max_output_tokens,
+        )
+        logger.debug(
+            "complete() modelo=%s temperature=%s (%s caracteres)",
+            self.model,
+            config.temperature,
+            len(user_message),
+        )
+        response = self._client.models.generate_content(
+            model=self.model,
+            contents=user_message,
+            config=config,
+        )
+        return self._text_from(response)
+
+    @staticmethod
+    def _text_from(response: object) -> str:
+        text = (getattr(response, "text", None) or "").strip()
         if not text:
             logger.warning("El modelo devolvió una respuesta vacía")
             return "(sin respuesta)"
