@@ -8,9 +8,16 @@ EXIT_COMMANDS = {"salir", "exit", "quit", "q"}
 def main() -> None:
     settings = load_settings()
     logger = get_logger(level=settings.log_level)
-    llm = LLMClient(api_key=settings.gemini_api_key, model=settings.gemini_model)
+    llm = LLMClient(settings)
 
     print(f"Chat con Gemini ({settings.gemini_model})")
+    print(
+        "params: "
+        f"temperature={settings.temperature} "
+        f"top_p={settings.top_p} "
+        f"top_k={settings.top_k} "
+        f"max_output_tokens={settings.max_output_tokens}"
+    )
     print("Escribe tu mensaje. Comandos: salir / exit / quit / Ctrl+C\n")
 
     while True:
