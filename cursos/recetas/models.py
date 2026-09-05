@@ -36,3 +36,25 @@ class Receta(BaseModel):
 
 class Recetario(BaseModel):
     recetas: list[Receta] = Field(..., min_length=10, max_length=10)
+
+
+class RecetarioProsa(BaseModel):
+    """Entrada cruda: título → instrucciones en texto libre."""
+
+    recetas: dict[str, str] = Field(..., min_length=10, max_length=10)
+
+    @field_validator("recetas")
+    @classmethod
+    def _textos_utiles(cls, value: dict[str, str]) -> dict[str, str]:
+        cleaned: dict[str, str] = {}
+        for titulo, texto in value.items():
+            if not isinstance(texto, str):
+                raise ValueError(f"la receta {titulo!r} debe ser un texto")
+            nombre = titulo.strip()
+            cuerpo = texto.strip()
+            if not nombre or not cuerpo:
+                raise ValueError(f"título o texto vacío: {titulo!r}")
+            cleaned[nombre] = cuerpo
+        if len(cleaned) != 10:
+            raise ValueError("el archivo debe tener exactamente 10 recetas")
+        return cleaned

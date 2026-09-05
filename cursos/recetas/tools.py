@@ -4,11 +4,10 @@ from pathlib import Path
 
 from google import genai
 from google.genai import types
-from pydantic import ValidationError
 
 from core.config import load_settings
 from cursos.recetas.jsonc import strip_jsonc
-from cursos.recetas.models import Recetario
+from cursos.recetas.models import Recetario, RecetarioProsa
 
 
 def leer_archivo(ruta: str) -> str:
@@ -19,26 +18,39 @@ def leer_archivo(ruta: str) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def _cargar_payload(texto: str) -> dict:
-    cleaned = strip_jsonc(texto)
-    payload = json.loads(cleaned)
-    if isinstance(payload, list):
-        return {"recetas": payload}
-    if isinstance(payload, dict):
-        return payload
-    raise ValueError("El JSONC debe ser un objeto o una lista de recetas.")
+def parsear_prosa(texto: str) -> RecetarioProsa:
+    """Parsea JSONC del tipo {\"Guacamole\": \"Primero corta 1 cebolla...\"}."""
+    payload = json.loads(strip_jsonc(texto))
+    if not isinstance(payload, dict):
+        raise ValueError("El JSONC debe ser un objeto {titulo: texto}.")
+    if (
+        set(payload) == {"recetas"}
+        and isinstance(payload["recetas"], dict)
+    ):
+        payload = payload["recetas"]
+    for clave, valor in payload.items():
+        if isinstance(valor, dict):
+            raise ValueError(
+                "Las recetas deben ser prosa (un string), no objetos anidados. "
+                f"Revisa {clave!r}."
+            )
+    return RecetarioProsa.model_validate({"recetas": payload})
 
 
-def _normalizar_con_llm(texto: str) -> Recetario:
+def _estructurar_con_llm(prosa: RecetarioProsa) -> Recetario:
     settings = load_settings()
     client = genai.Client(api_key=settings.gemini_api_key)
+    listado = "\n\n".join(
+        f"## {titulo}\n{cuerpo}" for titulo, cuerpo in prosa.recetas.items()
+    )
     response = client.models.generate_content(
         model=settings.gemini_model,
         contents=(
-            "Normaliza el siguiente texto a un recetario con exactamente 10 recetas. "
-            "Conserva titulo, ingredientes (nombre, cantidad numérica, unidad) y pasos. "
-            "Responde solo con el JSON del esquema.\n\n"
-            f"{texto}"
+            "A partir de recetas en prosa, extrae un recetario estructurado. "
+            "Usa los títulos dados. En cada receta lista ingredientes con "
+            "nombre, cantidad numérica y unidad, y los pasos en orden. "
+            "No inventes recetas extra: exactamente esas 10.\n\n"
+            f"{listado}"
         ),
         config=types.GenerateContentConfig(
             temperature=0.1,
@@ -51,12 +63,9 @@ def _normalizar_con_llm(texto: str) -> Recetario:
 
 
 def validar_recetario(texto: str) -> str:
-    """Valida recetas con Pydantic (Ingrediente dentro de Receta). Si el JSONC falla, usa structured output."""
-    try:
-        recetario = Recetario.model_validate(_cargar_payload(texto))
-    except (json.JSONDecodeError, ValidationError, ValueError, TypeError):
-        recetario = _normalizar_con_llm(texto)
-        recetario = Recetario.model_validate(recetario.model_dump())
+    """Lee recetas en prosa, las estructura con el LLM y valida el Recetario anidado."""
+    prosa = parsear_prosa(texto)
+    recetario = _estructurar_con_llm(prosa)
     return recetario.model_dump_json(indent=2)
 
 

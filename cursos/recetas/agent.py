@@ -11,11 +11,13 @@ from cursos.recetas.tools import (
 )
 
 SYSTEM = (
-    "Eres un agente de recetas. Debes usar herramientas, no inventar datos si el archivo ya existe. "
-    "Orden sugerido: leer_archivo → validar_recetario → exportar_csv_ingredientes. "
-    "validar_recetario recibe el texto crudo y devuelve JSON. "
-    "exportar_csv_ingredientes recibe ese JSON y la ruta de salida. "
-    "Al terminar, confirma cuántas recetas y filas de ingredientes se escribieron."
+    "Eres un agente de recetas. El archivo de entrada NO trae ingredientes estructurados: "
+    "es un mapa titulo → texto libre (por ejemplo "
+    '"Guacamole": "Primero corta 1 cebolla y 3 aguacates..."). '
+    "Usa herramientas. Orden: leer_archivo → validar_recetario → exportar_csv_ingredientes. "
+    "validar_recetario parsea la prosa, extrae ingredientes/pasos con el modelo y valida Pydantic. "
+    "exportar_csv_ingredientes recibe el JSON estructurado y la ruta de salida. "
+    "No inventes recetas que no estén en el archivo."
 )
 
 
@@ -38,8 +40,8 @@ def run_agent(ruta_entrada: str, ruta_salida: str) -> str:
     entrada = str(Path(ruta_entrada).expanduser().resolve())
     salida = str(Path(ruta_salida).expanduser().resolve())
     prompt = (
-        f"Lee el archivo {entrada}, valídalo como recetario de 10 recetas "
-        f"y exporta el CSV de ingredientes a {salida}."
+        f"Lee {entrada}. Son 10 recetas en prosa (titulo: texto). "
+        f"Estrúcturalas y exporta el CSV de ingredientes a {salida}."
     )
     response = chat.send_message(prompt)
     return (response.text or "").strip()
